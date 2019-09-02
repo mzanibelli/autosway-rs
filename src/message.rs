@@ -1,6 +1,6 @@
 use serde::Deserialize;
-use serde_json;
 
+#[derive(Debug)]
 /// Subset of the messages supported by the IPC protocol.
 pub enum Message {
     GetOutputs,

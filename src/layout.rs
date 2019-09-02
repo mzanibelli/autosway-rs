@@ -1,10 +1,10 @@
 use serde::Deserialize;
 use serde::Serialize;
-use serde_json;
 use sha2::{Digest, Sha256};
 use std::fmt::Display;
 use std::fmt::Formatter;
 
+#[derive(Debug)]
 /// The currently available outputs.
 pub struct Layout {
     pub outputs: Vec<Output>,
@@ -20,10 +20,15 @@ impl Layout {
 
     /// Returns a finger print that is unique for a given layout.
     pub fn fingerprint(&self) -> String {
-        let raw: Vec<String> = self.outputs.iter().map(Self::id).collect();
         let mut hasher = Sha256::new();
-        hasher.input(raw.join("+++").as_bytes());
-
+        hasher.input(
+            self.outputs
+                .iter()
+                .map(Self::id)
+                .collect::<Vec<String>>()
+                .join("+++")
+                .as_bytes(),
+        );
         format!("{:x}", hasher.result())
     }
 
@@ -36,10 +41,11 @@ impl Layout {
 impl Display for Layout {
     /// Renders each output's string template separated by a line feed.
     fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
-        Ok(self
-            .outputs
+        self.outputs
             .iter()
-            .for_each(|o| write!(f, "{}\n", o).unwrap()))
+            .map(|o| write!(f, "{}\n", o))
+            .collect::<Result<Vec<()>, std::fmt::Error>>()
+            .map(|_| ())
     }
 }
 
