@@ -108,6 +108,7 @@ fn guard_against_invalid_response(headers: &[u8]) {
     )
 }
 
+/// Configures the detected layout.
 fn auto(
     repository: &Repository,
     stream: &mut UnixStream,
