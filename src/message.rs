@@ -40,8 +40,11 @@ pub struct Response {
 }
 
 impl Response {
-  /// Retuns an instance read from JSON as bytes.
-  pub fn from_json(input: &[u8]) -> Vec<Self> {
-    serde_json::from_slice(input).unwrap()
+  /// Retuns true if all responses are successful.
+  pub fn bulk_scan(input: Vec<u8>) -> bool {
+    match serde_json::from_slice::<Vec<Self>>(&input) {
+      Ok(resp) => resp.iter().all(|r| r.success),
+      _ => false,
+    }
   }
 }

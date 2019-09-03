@@ -18,56 +18,54 @@ impl Repository {
     Path::new(&self.0)
       .join(layout.fingerprint())
       .to_str()
-      .ok_or(StorageError::NoPath)
+      .ok_or(StorageError::None)
       .map(String::from)
   }
 
   /// Writes a file containing layout data in JSON.
-  pub fn save(&self, layout: &Layout) -> Result<(), StorageError> {
-    let data = serde_json::to_string(&layout.outputs).map_err(StorageError::Json)?;
-    fs::write(&self.path(&layout)?, data.as_bytes()).map_err(StorageError::Io)?;
-    Ok(())
+  pub fn save(&self, layout: Layout) -> Result<(), StorageError> {
+    serde_json::to_string(&layout.outputs)
+      .map_err(StorageError::Json)
+      .map(
+        move |data| match fs::write(&self.path(&layout)?, data.as_bytes()) {
+          Ok(()) => Ok(()),
+          Err(error) => Err(StorageError::Io(error)),
+        },
+      )?
   }
 
   /// Reads data into a given layout.
   pub fn load(&self, mut layout: Layout) -> Result<Layout, StorageError> {
-    let data = fs::read_to_string(&self.path(&layout)?).map_err(StorageError::Io)?;
-    layout.outputs = serde_json::from_str(&data).map_err(StorageError::Json)?;
-    Ok(layout)
+    fs::read_to_string(&self.path(&layout)?)
+      .map_err(StorageError::Io)
+      .map(move |data| match serde_json::from_str(&data) {
+        Ok(outputs) => {
+          layout.outputs = outputs;
+          Ok(layout)
+        }
+        Err(error) => Err(StorageError::Json(error)),
+      })?
   }
 }
 
 #[derive(Debug)]
 pub enum StorageError {
+  /// Results from a file operation error.
   Io(std::io::Error),
+  /// Could not encode or decode to/from JSON.
   Json(serde_json::error::Error),
-  NoPath,
+  /// We did not receive a value but expected one.
+  None,
 }
+
+impl error::Error for StorageError {}
 
 impl fmt::Display for StorageError {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match *self {
       StorageError::Io(ref err) => write!(f, "storage: io: {}", err),
       StorageError::Json(ref err) => write!(f, "storage: json: {}", err),
-      StorageError::NoPath => write!(f, "storage: no path"),
-    }
-  }
-}
-
-impl error::Error for StorageError {
-  fn description(&self) -> &str {
-    match *self {
-      StorageError::Io(ref err) => err.description(),
-      StorageError::Json(ref err) => error::Error::description(err),
-      StorageError::NoPath => "no path",
-    }
-  }
-
-  fn cause(&self) -> Option<&dyn error::Error> {
-    match *self {
-      StorageError::Io(ref err) => Some(err),
-      StorageError::Json(ref err) => Some(err),
-      StorageError::NoPath => None,
+      StorageError::None => write!(f, "storage: no path"),
     }
   }
 }
