@@ -32,8 +32,8 @@ impl Ipc {
   /// Panics if we can't clone the underlying socket.
   /// This is probably a very bad idea but remember we're writing in the
   /// socket over a map() - potentially not sequential.
-  /// TODO: actually understand why this seems to work...
   pub fn clone(&self) -> Self {
+    // TODO: actually understand why this seems to work...
     Ipc(self.0.try_clone().unwrap())
   }
 }
