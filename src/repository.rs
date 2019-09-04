@@ -26,25 +26,29 @@ impl Repository {
   pub fn save(&self, layout: Layout) -> Result<(), StorageError> {
     serde_json::to_string(&layout.outputs)
       .map_err(StorageError::Json)
-      .map(
+      .and_then(
         move |data| match fs::write(&self.path(&layout)?, data.as_bytes()) {
           Ok(()) => Ok(()),
           Err(error) => Err(StorageError::Io(error)),
         },
-      )?
+      )
   }
 
   /// Reads data into a given layout.
   pub fn load(&self, mut layout: Layout) -> Result<Layout, StorageError> {
     fs::read_to_string(&self.path(&layout)?)
       .map_err(StorageError::Io)
-      .map(move |data| match serde_json::from_str(&data) {
+      .and_then(move |data| match serde_json::from_str(&data) {
         Ok(outputs) => {
+          // TODO: set rect, active and transform according to file
+          // Lookup outputs using the OEM identifier string.
+          // Right now, if outputs swapped names, the incorrect
+          // configuration is applied.
           layout.outputs = outputs;
           Ok(layout)
         }
         Err(error) => Err(StorageError::Json(error)),
-      })?
+      })
   }
 }
 

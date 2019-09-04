@@ -33,7 +33,13 @@ impl Layout {
 
   /// A vector with an unique string for each output.
   fn serialize_ids(&self) -> Vec<String> {
-    self.outputs.iter().map(unique_oem_identifier).collect()
+    let mut ids = self
+      .outputs
+      .iter()
+      .map(unique_oem_identifier)
+      .collect::<Vec<String>>();
+    ids.sort();
+    ids
   }
 }
 
