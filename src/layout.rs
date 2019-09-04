@@ -51,7 +51,7 @@ pub struct Output {
   make: String,
   model: String,
   serial: String,
-  transform: String,
+  transform: Option<String>,
   rect: Rect,
   active: bool,
 }
@@ -74,13 +74,12 @@ impl Display for Output {
 /// Writes the IPC command corresponding to the output.
 fn sway_output_command(output: &Output) -> String {
   match output.active {
-    // TODO: ensure one shot command works
     true => format!(
       "output {} enable res {} pos {} transform {}",
       output.name,
       format!("{}x{}", output.rect.width, output.rect.height),
       format!("{} {}", output.rect.x, output.rect.y),
-      output.transform,
+      output.transform.as_ref().unwrap_or(&String::from("normal"))
     ),
     false => format!("output {} disable", output.name),
   }
