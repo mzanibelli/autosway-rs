@@ -1,10 +1,11 @@
 use serde::Deserialize;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
+use std::clone::Clone;
 use std::fmt::Display;
 use std::fmt::Formatter;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// The currently available outputs.
 pub struct Layout {
   pub outputs: Vec<Output>,
@@ -28,7 +29,11 @@ impl Layout {
 
   /// A vector containing Sway commands.
   pub fn serialize_commands(&self) -> Vec<String> {
-    self.outputs.iter().map(sway_output_command).collect()
+    self
+      .activate_only_output()
+      .iter()
+      .map(sway_output_command)
+      .collect()
   }
 
   /// Merges the configuration of two layouts.
@@ -66,6 +71,18 @@ impl Layout {
     ids.sort();
     ids
   }
+
+  /// Activates any single output.
+  fn activate_only_output(&self) -> Vec<Output> {
+    let mut result = Vec::new();
+    for o in &self.outputs {
+      result.push(o.clone());
+    }
+    if result.len() == 1 {
+      result[0].active = true;
+    }
+    result
+  }
 }
 
 impl Display for Layout {
@@ -75,7 +92,7 @@ impl Display for Layout {
   }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 /// Represents an output.
 pub struct Output {
   name: String,
@@ -87,7 +104,7 @@ pub struct Output {
   active: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 /// Represents the position and size of an output.
 struct Rect {
   x: u32,
@@ -146,22 +163,24 @@ mod tests {
   }
 
   #[test]
-  pub fn it_should_generate_a_command_to_disable_output() {
-    let expected = vec![String::from("output eDP1 disable")];
-    let mut l = make_layout();
-    l.outputs[0].active = false;
-    let actual = l.serialize_commands();
-    assert_eq!(expected, actual);
-  }
-
-  #[test]
-  pub fn it_should_handle_multiple_displays() {
+  pub fn it_should_handle_multiple_displays_with_disabled_outputs() {
     let expected = vec![
       String::from("output eDP1 enable res 1920x1080 pos 0 0 transform normal"),
       String::from("output HDMI-2 disable"),
     ];
     let mut l = make_multi_outputs_layout();
     l.outputs[0].transform = None;
+    let actual = l.serialize_commands();
+    assert_eq!(expected, actual);
+  }
+
+  #[test]
+  pub fn it_should_activate_any_single_output() {
+    let expected = vec![String::from(
+      "output eDP1 enable res 1920x1080 pos 0 0 transform normal",
+    )];
+    let mut l = make_layout();
+    l.outputs[0].active = false;
     let actual = l.serialize_commands();
     assert_eq!(expected, actual);
   }
