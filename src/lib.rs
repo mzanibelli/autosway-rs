@@ -77,16 +77,21 @@ fn silently_save_layout(repo: Repository, layout: Layout) -> Result<String, Stri
 
 /// Translate layout to a set of declarative commands and execute them.
 fn apply_configuration(repo: Repository, ipc: Ipc, layout: Layout) -> Result<(), String> {
-  repo
-    .load(&layout)
-    .map_err(|e| e.to_string())
-    .map(move |l| layout.merge(l))?
+  merge_or_current(repo, layout)
     .serialize_commands()
     .drain(..)
     .map(Message::RunCommand)
     .map(|m| (ipc.clone(), m))
     .map(run_output_command)
     .collect()
+}
+
+/// Merges saved configuration if found, or returns the current layout.
+fn merge_or_current(repo: Repository, layout: Layout) -> Layout {
+  match repo.load(&layout) {
+    Ok(l) => layout.merge(l),
+    Err(_) => layout,
+  }
 }
 
 /// Execute a Sway command and ensure it is successful.
