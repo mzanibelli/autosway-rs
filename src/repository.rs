@@ -23,7 +23,7 @@ impl Repository {
   }
 
   /// Writes a file containing layout data in JSON.
-  pub fn save(&self, layout: Layout) -> Result<(), StorageError> {
+  pub fn save(&self, layout: &Layout) -> Result<(), StorageError> {
     serde_json::to_string(&layout.outputs)
       .map_err(StorageError::Json)
       .and_then(
@@ -35,8 +35,8 @@ impl Repository {
   }
 
   /// Reads data into a given layout.
-  pub fn load(&self, layout: Layout) -> Result<Layout, StorageError> {
-    fs::read_to_string(&self.path(&layout)?)
+  pub fn load(&self, layout: &Layout) -> Result<Layout, StorageError> {
+    fs::read_to_string(&self.path(layout)?)
       .map_err(StorageError::Io)
       .and_then(
         move |data| match Layout::from_json(data.as_bytes().to_vec()) {

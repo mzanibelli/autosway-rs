@@ -29,7 +29,7 @@ pub fn run(socket_path: String, fs_root: String, action: Action) -> Result<Strin
     ) {
       (repo, Ok(layout), Action::Auto) => silently_configure_layout(repo, ipc, layout),
       (repo, Ok(layout), Action::Save) => silently_save_layout(repo, layout),
-      (_, Ok(layout), _) => Ok(format!("{}", layout)),
+      (_, Ok(layout), _) => Ok(layout.to_string()),
       (_, Err(error), _) => Err(error),
     }
   })
@@ -69,7 +69,7 @@ fn silently_configure_layout(repo: Repository, ipc: Ipc, layout: Layout) -> Resu
 
 /// Persist layout without producing stdout content.
 fn silently_save_layout(repo: Repository, layout: Layout) -> Result<String, String> {
-  match repo.save(layout) {
+  match repo.save(&layout) {
     Ok(_) => Ok(String::new()),
     Err(error) => Err(error.to_string()),
   }
@@ -78,8 +78,9 @@ fn silently_save_layout(repo: Repository, layout: Layout) -> Result<String, Stri
 /// Translate layout to a set of declarative commands and execute them.
 fn apply_configuration(repo: Repository, ipc: Ipc, layout: Layout) -> Result<(), String> {
   repo
-    .load(layout)
-    .map_err(|e| e.to_string())?
+    .load(&layout)
+    .map_err(|e| e.to_string())
+    .map(move |l| layout.merge(l))?
     .serialize_commands()
     .drain(..)
     .map(Message::RunCommand)

@@ -19,7 +19,7 @@ impl Layout {
     }
   }
 
-  /// Returns a finger print that is unique for a given layout.
+  /// Returns afinger print that is unique for a given layout.
   pub fn fingerprint(&self) -> String {
     let mut hasher = Sha256::new();
     hasher.input(self.serialize_ids().join("+++").as_bytes());
@@ -29,6 +29,31 @@ impl Layout {
   /// A vector containing Sway commands.
   pub fn serialize_commands(&self) -> Vec<String> {
     self.outputs.iter().map(sway_output_command).collect()
+  }
+
+  /// Merges the configuration of two layouts.
+  pub fn merge(mut self, layout: Self) -> Self {
+    for ref mut o in &mut (self.outputs) {
+      let o2 = layout.find_by_id(unique_oem_identifier(&o));
+      o.rect.x = o2.rect.x;
+      o.rect.y = o2.rect.y;
+      o.rect.width = o2.rect.width;
+      o.rect.height = o2.rect.height;
+      match &o2.transform {
+        Some(t) => o.transform = Some(t.clone()),
+        None => (),
+      }
+    }
+    self
+  }
+
+  /// Panics if there is no matching output.
+  fn find_by_id(&self, id: String) -> &Output {
+    self
+      .outputs
+      .iter()
+      .find(|o| unique_oem_identifier(&o) == id)
+      .expect("merge: incompatible layout")
   }
 
   /// A vector with an unique string for each output.
@@ -62,7 +87,7 @@ pub struct Output {
   active: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 /// Represents the position and size of an output.
 struct Rect {
   x: u32,
@@ -94,4 +119,118 @@ fn sway_output_command(output: &Output) -> String {
 /// Writes an unique string for the output.
 fn unique_oem_identifier(output: &Output) -> String {
   format!("{}|{}|{}", output.make, output.model, output.serial)
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  pub fn it_should_generate_sway_commands_according_to_the_current_layout() {
+    let expected = vec![String::from(
+      "output eDP1 enable res 1920x1080 pos 0 0 transform normal",
+    )];
+    let actual = make_layout().serialize_commands();
+    assert_eq!(expected, actual);
+  }
+
+  #[test]
+  pub fn if_transform_is_not_specified_the_generated_command_contains_normal() {
+    let expected = vec![String::from(
+      "output eDP1 enable res 1920x1080 pos 0 0 transform normal",
+    )];
+    let mut l = make_layout();
+    l.outputs[0].transform = None;
+    let actual = l.serialize_commands();
+    assert_eq!(expected, actual);
+  }
+
+  #[test]
+  pub fn it_should_generate_a_command_to_disable_output() {
+    let expected = vec![String::from("output eDP1 disable")];
+    let mut l = make_layout();
+    l.outputs[0].active = false;
+    let actual = l.serialize_commands();
+    assert_eq!(expected, actual);
+  }
+
+  #[test]
+  pub fn it_should_handle_multiple_displays() {
+    let expected = vec![
+      String::from("output eDP1 enable res 1920x1080 pos 0 0 transform normal"),
+      String::from("output HDMI-2 disable"),
+    ];
+    let mut l = make_multi_outputs_layout();
+    l.outputs[0].transform = None;
+    let actual = l.serialize_commands();
+    assert_eq!(expected, actual);
+  }
+
+  #[test]
+  pub fn merge_should_override_transform() {
+    let mut l1 = make_layout();
+    let mut l2 = make_layout();
+    l2.outputs[0].transform = Some(String::from("270"));
+    l1 = l1.merge(l2);
+    assert_eq!(Some(String::from("270")), l1.outputs[0].transform);
+  }
+
+  #[test]
+  pub fn merge_should_override_rect() {
+    let mut l1 = make_layout();
+    let mut l2 = make_layout();
+    l2.outputs[0].rect = super::Rect {
+      x: 111,
+      y: 222,
+      width: 333,
+      height: 444,
+    };
+    l1 = l1.merge(l2);
+    assert_eq!(111, l1.outputs[0].rect.x);
+    assert_eq!(222, l1.outputs[0].rect.y);
+    assert_eq!(333, l1.outputs[0].rect.width);
+    assert_eq!(444, l1.outputs[0].rect.height);
+  }
+
+  #[test]
+  pub fn merge_should_not_override_name() {
+    let mut l1 = make_layout();
+    let mut l2 = make_layout();
+    l2.outputs[0].name = String::from("HDMI-2");
+    l1 = l1.merge(l2);
+    assert_eq!(String::from("eDP1"), l1.outputs[0].name);
+  }
+
+  fn make_layout() -> super::Layout {
+    Layout {
+      outputs: vec![make_output()],
+    }
+  }
+
+  fn make_multi_outputs_layout() -> super::Layout {
+    let o1 = make_output();
+    let mut o2 = make_output();
+    o2.name = String::from("HDMI-2");
+    o2.active = false;
+    super::Layout {
+      outputs: vec![o1, o2],
+    }
+  }
+
+  fn make_output() -> super::Output {
+    super::Output {
+      name: String::from("eDP1"),
+      make: String::from("Samsung"),
+      model: String::from("XYZ"),
+      serial: String::from("12345"),
+      transform: Some(String::from("normal")),
+      rect: super::Rect {
+        x: 0,
+        y: 0,
+        width: 1920,
+        height: 1080,
+      },
+      active: true,
+    }
+  }
 }

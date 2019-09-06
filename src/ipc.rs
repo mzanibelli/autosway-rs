@@ -21,10 +21,9 @@ impl Ipc {
 
   /// Sends a request and returns any valid response body as bytes.
   pub fn roundtrip(&mut self, m: Message) -> Result<Vec<u8>, io::Error> {
-    match make_request(&mut self.0, m) {
-      Ok(_) => read_response(&self.0),
-      Err(error) => Err(error),
-    }
+    make_request(&mut self.0, m)
+      .and_then(|()| read_response_headers(&self.0))
+      .and_then(|size| read_n(&self.0, size))
   }
 
   /// Forks the connection.
@@ -63,14 +62,6 @@ fn write_message(request: &mut Vec<u8>, mess: Message) {
   request.append(&mut mess.data().to_vec());
 }
 
-/// Returns the response body as a vector of bytes.
-fn read_response(stream: &UnixStream) -> Result<Vec<u8>, io::Error> {
-  match read_response_headers(stream) {
-    Ok(size) => read_n(stream, size),
-    Err(error) => Err(error),
-  }
-}
-
 /// Returns the expected body length as announced by the server.
 fn read_response_headers(stream: impl Read) -> Result<usize, io::Error> {
   let headers = read_n(stream, MAGIC_STRING.len() + 2 * mem::size_of::<u32>())?;
@@ -92,4 +83,60 @@ fn guard_against_invalid_response(headers: &[u8]) {
     String::from_utf8(headers[0..6].to_vec()).as_ref().unwrap(),
     MAGIC_STRING
   )
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn it_should_generate_a_valid_standard_get_outputs_message() {
+    let mut c = io::Cursor::new(Vec::new());
+    let expected = vec![
+      //                                     | size              | type
+      105u8, 51u8, 45u8, 105u8, 112u8, 99u8, 0u8, 0u8, 0u8, 0u8, 3u8, 0u8, 0u8, 0u8,
+    ];
+    super::make_request(&mut c, Message::GetOutputs).unwrap();
+    assert_eq!(&expected, c.get_ref());
+  }
+
+  #[test]
+  fn it_should_generate_a_valid_run_command_message_with_payload() {
+    let mut c = io::Cursor::new(Vec::new());
+    let expected = vec![
+      //                                     | size              | type              | payload
+      105u8, 51u8, 45u8, 105u8, 112u8, 99u8, 3u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 102u8, 111u8,
+      111u8,
+    ];
+    super::make_request(&mut c, Message::RunCommand(String::from("foo"))).unwrap();
+    assert_eq!(&expected, c.get_ref());
+  }
+
+  #[test]
+  fn it_should_read_the_expected_payload_size_from_the_headers() {
+    let c = io::Cursor::new(vec![
+      //                                     | size              | type              | payload
+      105u8, 51u8, 45u8, 105u8, 112u8, 99u8, 3u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 102u8, 111u8,
+      111u8,
+    ]);
+    let actual = super::read_response_headers(c).unwrap();
+    assert_eq!(3, actual);
+  }
+
+  #[test]
+  #[should_panic]
+  fn it_should_panic_if_the_headers_dont_start_with_magic_string() {
+    let c = io::Cursor::new(vec![
+      //                               |x    | size              | type
+      105u8, 51u8, 45u8, 105u8, 112u8, 98u8, 0u8, 0u8, 0u8, 0u8, 3u8, 0u8, 0u8, 0u8,
+    ]);
+    super::read_response_headers(c).unwrap();
+  }
+
+  #[test]
+  fn it_should_read_a_limited_number_of_bytes() {
+    let c = io::Cursor::new(vec![105u8, 51u8, 45u8, 105u8]);
+    let actual = super::read_n(c, 2).unwrap();
+    assert_eq!(vec![105u8, 51u8], actual);
+  }
 }

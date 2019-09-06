@@ -48,3 +48,56 @@ impl Response {
     }
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn it_should_return_true_if_all_responses_are_successful() {
+    let input = String::from(
+      r#"
+      [
+        {"success": true},
+        {"success": true},
+        {"success": true}
+      ]
+    "#,
+    )
+    .as_bytes()
+    .to_vec();
+    assert_eq!(true, Response::bulk_scan(input));
+  }
+
+  #[test]
+  fn it_should_return_false_with_invalid_json() {
+    let input = String::from(
+      r#"
+      [
+        {"success": true}
+        {"success": true}
+        {"success": true}
+      ]
+    "#,
+    )
+    .as_bytes()
+    .to_vec();
+    assert_eq!(false, Response::bulk_scan(input));
+  }
+
+  #[test]
+  fn it_should_return_false_if_one_response_is_unsuccessful() {
+    let input = String::from(
+      r#"
+      [
+        {"success": true},
+        {"success": false},
+        {"success": true}
+      ]
+    "#,
+    )
+    .as_bytes()
+    .to_vec();
+    assert_eq!(false, Response::bulk_scan(input));
+  }
+}
