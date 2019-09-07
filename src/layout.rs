@@ -39,7 +39,9 @@ impl Layout {
   /// Merges the configuration of two layouts.
   pub fn merge(mut self, layout: Self) -> Self {
     for ref mut o in &mut (self.outputs) {
-      let o2 = layout.find_by_id(unique_oem_identifier(&o));
+      let o2 = layout
+        .find_by_id(unique_oem_identifier(&o))
+        .expect("merge: incompatible layouts");
       o.rect.x = o2.rect.x;
       o.rect.y = o2.rect.y;
       o.rect.width = o2.rect.width;
@@ -53,12 +55,11 @@ impl Layout {
   }
 
   /// Panics if there is no matching output.
-  fn find_by_id(&self, id: String) -> &Output {
+  fn find_by_id(&self, id: String) -> Option<&Output> {
     self
       .outputs
       .iter()
       .find(|o| unique_oem_identifier(&o) == id)
-      .expect("merge: incompatible layout")
   }
 
   /// A vector with an unique string for each output.
@@ -226,6 +227,15 @@ mod tests {
     l2.outputs[0].name = String::from("HDMI-2");
     l1 = l1.merge(l2);
     assert_eq!(String::from("eDP1"), l1.outputs[0].name);
+  }
+
+  #[test]
+  #[should_panic]
+  fn merge_should_panic_in_case_of_incompatible_layouts() {
+    let l1 = make_layout();
+    let mut l2 = make_layout();
+    l2.outputs[0].make = String::from("Apple");
+    l1.merge(l2);
   }
 
   fn make_layout() -> super::Layout {
