@@ -17,8 +17,6 @@ pub enum Action {
   List,
 }
 
-// TODO: discover Rust testing
-
 /// Runs the program by executing the requested action and return contents for stdout and stderr.
 pub fn run(socket_path: String, fs_root: String, action: Action) -> Result<String, String> {
   connect_to_sway(socket_path).and_then(move |mut ipc| {
