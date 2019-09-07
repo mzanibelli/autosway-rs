@@ -143,7 +143,7 @@ mod tests {
   use super::*;
 
   #[test]
-  pub fn it_should_generate_sway_commands_according_to_the_current_layout() {
+  fn it_should_generate_sway_commands_according_to_the_current_layout() {
     let expected = vec![String::from(
       "output eDP1 enable res 1920x1080 pos 0 0 transform normal",
     )];
@@ -152,7 +152,7 @@ mod tests {
   }
 
   #[test]
-  pub fn if_transform_is_not_specified_the_generated_command_contains_normal() {
+  fn if_transform_is_not_specified_the_generated_command_contains_normal() {
     let expected = vec![String::from(
       "output eDP1 enable res 1920x1080 pos 0 0 transform normal",
     )];
@@ -163,7 +163,7 @@ mod tests {
   }
 
   #[test]
-  pub fn it_should_handle_multiple_displays_with_disabled_outputs() {
+  fn it_should_handle_multiple_displays_with_disabled_outputs() {
     let expected = vec![
       String::from("output eDP1 enable res 1920x1080 pos 0 0 transform normal"),
       String::from("output HDMI-2 disable"),
@@ -175,7 +175,7 @@ mod tests {
   }
 
   #[test]
-  pub fn it_should_activate_any_single_output() {
+  fn it_should_activate_any_single_output() {
     let expected = vec![String::from(
       "output eDP1 enable res 1920x1080 pos 0 0 transform normal",
     )];
@@ -186,7 +186,15 @@ mod tests {
   }
 
   #[test]
-  pub fn merge_should_override_transform() {
+  fn fingerprint_should_not_be_sensitive_to_output_order() {
+    let l1 = make_multi_outputs_layout();
+    let mut l2 = make_multi_outputs_layout();
+    l2.outputs.reverse();
+    assert_eq!(l1.fingerprint(), l2.fingerprint());
+  }
+
+  #[test]
+  fn merge_should_override_transform() {
     let mut l1 = make_layout();
     let mut l2 = make_layout();
     l2.outputs[0].transform = Some(String::from("270"));
@@ -195,7 +203,7 @@ mod tests {
   }
 
   #[test]
-  pub fn merge_should_override_rect() {
+  fn merge_should_override_rect() {
     let mut l1 = make_layout();
     let mut l2 = make_layout();
     l2.outputs[0].rect = super::Rect {
@@ -212,7 +220,7 @@ mod tests {
   }
 
   #[test]
-  pub fn merge_should_not_override_name() {
+  fn merge_should_not_override_name() {
     let mut l1 = make_layout();
     let mut l2 = make_layout();
     l2.outputs[0].name = String::from("HDMI-2");
@@ -230,6 +238,7 @@ mod tests {
     let o1 = make_output();
     let mut o2 = make_output();
     o2.name = String::from("HDMI-2");
+    o2.make = String::from("Apple");
     o2.active = false;
     super::Layout {
       outputs: vec![o1, o2],
