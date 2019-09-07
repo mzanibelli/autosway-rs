@@ -5,21 +5,11 @@ use std::clone::Clone;
 use std::fmt::Display;
 use std::fmt::Formatter;
 
-#[derive(Debug, Clone)]
 /// The currently available outputs.
-pub struct Layout {
-  pub outputs: Vec<Output>,
-}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Layout(Vec<Output>);
 
 impl Layout {
-  /// Returns a new instance from a slice of bytes containing JSON.
-  pub fn from_json(input: Vec<u8>) -> Result<Self, serde_json::error::Error> {
-    match serde_json::from_slice(&input) {
-      Ok(outputs) => Ok(Layout { outputs }),
-      Err(error) => Err(error),
-    }
-  }
-
   /// Returns afinger print that is unique for a given layout.
   pub fn fingerprint(&self) -> String {
     let mut hasher = Sha256::new();
@@ -38,7 +28,7 @@ impl Layout {
 
   /// Merges the configuration of two layouts.
   pub fn merge(mut self, layout: Self) -> Self {
-    for ref mut o in &mut (self.outputs) {
+    for ref mut o in &mut (self.0) {
       let o2 = layout
         .find_by_id(unique_oem_identifier(&o))
         .expect("merge: incompatible layouts");
@@ -56,16 +46,13 @@ impl Layout {
 
   /// Panics if there is no matching output.
   fn find_by_id(&self, id: String) -> Option<&Output> {
-    self
-      .outputs
-      .iter()
-      .find(|o| unique_oem_identifier(&o) == id)
+    self.0.iter().find(|o| unique_oem_identifier(&o) == id)
   }
 
   /// A vector with an unique string for each output.
   fn serialize_ids(&self) -> Vec<String> {
     let mut ids = self
-      .outputs
+      .0
       .iter()
       .map(unique_oem_identifier)
       .collect::<Vec<String>>();
@@ -76,7 +63,7 @@ impl Layout {
   /// Activates any single output.
   fn activate_only_output(&self) -> Vec<Output> {
     let mut result = Vec::new();
-    for o in &self.outputs {
+    for o in &self.0 {
       result.push(o.clone());
     }
     if result.len() == 1 {
@@ -158,7 +145,7 @@ mod tests {
       "output eDP1 enable res 1920x1080 pos 0 0 transform normal",
     )];
     let mut l = make_layout();
-    l.outputs[0].transform = None;
+    l.0[0].transform = None;
     let actual = l.serialize_commands();
     assert_eq!(expected, actual);
   }
@@ -170,7 +157,7 @@ mod tests {
       String::from("output HDMI-2 disable"),
     ];
     let mut l = make_multi_outputs_layout();
-    l.outputs[0].transform = None;
+    l.0[0].transform = None;
     let actual = l.serialize_commands();
     assert_eq!(expected, actual);
   }
@@ -181,7 +168,7 @@ mod tests {
       "output eDP1 enable res 1920x1080 pos 0 0 transform normal",
     )];
     let mut l = make_layout();
-    l.outputs[0].active = false;
+    l.0[0].active = false;
     let actual = l.serialize_commands();
     assert_eq!(expected, actual);
   }
@@ -190,7 +177,7 @@ mod tests {
   fn fingerprint_should_not_be_sensitive_to_output_order() {
     let l1 = make_multi_outputs_layout();
     let mut l2 = make_multi_outputs_layout();
-    l2.outputs.reverse();
+    l2.0.reverse();
     assert_eq!(l1.fingerprint(), l2.fingerprint());
   }
 
@@ -198,35 +185,35 @@ mod tests {
   fn merge_should_override_transform() {
     let mut l1 = make_layout();
     let mut l2 = make_layout();
-    l2.outputs[0].transform = Some(String::from("270"));
+    l2.0[0].transform = Some(String::from("270"));
     l1 = l1.merge(l2);
-    assert_eq!(Some(String::from("270")), l1.outputs[0].transform);
+    assert_eq!(Some(String::from("270")), l1.0[0].transform);
   }
 
   #[test]
   fn merge_should_override_rect() {
     let mut l1 = make_layout();
     let mut l2 = make_layout();
-    l2.outputs[0].rect = super::Rect {
+    l2.0[0].rect = super::Rect {
       x: 111,
       y: 222,
       width: 333,
       height: 444,
     };
     l1 = l1.merge(l2);
-    assert_eq!(111, l1.outputs[0].rect.x);
-    assert_eq!(222, l1.outputs[0].rect.y);
-    assert_eq!(333, l1.outputs[0].rect.width);
-    assert_eq!(444, l1.outputs[0].rect.height);
+    assert_eq!(111, l1.0[0].rect.x);
+    assert_eq!(222, l1.0[0].rect.y);
+    assert_eq!(333, l1.0[0].rect.width);
+    assert_eq!(444, l1.0[0].rect.height);
   }
 
   #[test]
   fn merge_should_not_override_name() {
     let mut l1 = make_layout();
     let mut l2 = make_layout();
-    l2.outputs[0].name = String::from("HDMI-2");
+    l2.0[0].name = String::from("HDMI-2");
     l1 = l1.merge(l2);
-    assert_eq!(String::from("eDP1"), l1.outputs[0].name);
+    assert_eq!(String::from("eDP1"), l1.0[0].name);
   }
 
   #[test]
@@ -234,14 +221,12 @@ mod tests {
   fn merge_should_panic_in_case_of_incompatible_layouts() {
     let l1 = make_layout();
     let mut l2 = make_layout();
-    l2.outputs[0].make = String::from("Apple");
+    l2.0[0].make = String::from("Apple");
     l1.merge(l2);
   }
 
   fn make_layout() -> super::Layout {
-    Layout {
-      outputs: vec![make_output()],
-    }
+    Layout(vec![make_output()])
   }
 
   fn make_multi_outputs_layout() -> super::Layout {
@@ -250,9 +235,7 @@ mod tests {
     o2.name = String::from("HDMI-2");
     o2.make = String::from("Apple");
     o2.active = false;
-    super::Layout {
-      outputs: vec![o1, o2],
-    }
+    super::Layout(vec![o1, o2])
   }
 
   fn make_output() -> super::Output {

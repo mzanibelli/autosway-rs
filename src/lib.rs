@@ -44,15 +44,7 @@ fn connect_to_sway(socket_path: String) -> Result<Ipc, String> {
 /// Ask Sway what the current layout is.
 fn request_active_layout(ipc: &mut Ipc) -> Result<Layout, String> {
   match ipc.roundtrip(Message::GetOutputs) {
-    Ok(data) => unserialize_layout(data),
-    Err(error) => Err(error.to_string()),
-  }
-}
-
-/// Unserialize layout from JSON.
-fn unserialize_layout(data: Vec<u8>) -> Result<Layout, String> {
-  match Layout::from_json(data) {
-    Ok(layout) => Ok(layout),
+    Ok(data) => serde_json::from_slice(&data).map_err(|e| e.to_string()),
     Err(error) => Err(error.to_string()),
   }
 }
@@ -67,7 +59,7 @@ fn silently_configure_layout(repo: Repository, ipc: Ipc, layout: Layout) -> Resu
 
 /// Persist layout without producing stdout content.
 fn silently_save_layout(repo: Repository, layout: Layout) -> Result<String, String> {
-  match repo.save(&layout) {
+  match repo.save(layout.fingerprint(), &layout) {
     Ok(_) => Ok(String::new()),
     Err(error) => Err(error.to_string()),
   }
@@ -86,7 +78,7 @@ fn apply_configuration(repo: Repository, ipc: Ipc, layout: Layout) -> Result<(),
 
 /// Merges saved configuration if found, or returns the current layout.
 fn merge_or_current(repo: Repository, layout: Layout) -> Layout {
-  match repo.load(&layout) {
+  match repo.load(layout.fingerprint()) {
     Ok(l) => layout.merge(l),
     Err(_) => layout,
   }
