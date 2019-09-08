@@ -1,4 +1,3 @@
-use crate::ipc;
 use serde::Deserialize;
 
 #[derive(Debug)]
@@ -9,6 +8,15 @@ pub enum Message {
 }
 
 impl Message {
+  /// Serialize message.
+  pub fn to_bytes(&self) -> Vec<u8> {
+    let mut result = Vec::new();
+    result.append(&mut self.len().to_le_bytes().to_vec());
+    result.append(&mut self.what().to_le_bytes().to_vec());
+    result.append(&mut self.data());
+    result
+  }
+
   /// Returns the type (as in the protocol) of the message.
   fn what(&self) -> u32 {
     match &self {
@@ -34,16 +42,6 @@ impl Message {
   }
 }
 
-impl ipc::Message for Message {
-  fn to_bytes(&self) -> Vec<u8> {
-    let mut result = Vec::new();
-    result.append(&mut self.len().to_le_bytes().to_vec());
-    result.append(&mut self.what().to_le_bytes().to_vec());
-    result.append(&mut self.data());
-    result
-  }
-}
-
 #[derive(Debug, Deserialize)]
 /// Represents the output of a RunCommand command.
 pub struct Response {
@@ -63,7 +61,6 @@ impl Response {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::ipc::Message;
 
   #[test]
   fn it_should_serialize_a_standard_get_outputs_message() {

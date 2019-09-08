@@ -9,6 +9,7 @@ use message::{Message, Response};
 use repository::Repository;
 use std::error;
 use std::fmt;
+use std::io;
 
 pub enum Action {
   /// Automatically configure layout.
@@ -43,7 +44,7 @@ fn connect_to_sway(socket_path: String) -> Result<Ipc, Error> {
 /// Ask Sway what the current layout is.
 fn request_active_layout(ipc: &mut Ipc) -> Result<Layout, Error> {
   ipc
-    .roundtrip(Message::GetOutputs)
+    .roundtrip(Message::GetOutputs.to_bytes())
     .map_err(Error::Ipc)
     .map(|data| serde_json::from_slice(&data))?
     .map_err(Error::ActiveLayout)
@@ -84,21 +85,26 @@ fn merge_or_current(repo: Repository, layout: Layout) -> Layout {
 /// Execute a Sway command and ensure it is successful.
 fn run_output_command((mut ipc, message): (Ipc, Message)) -> Result<(), Error> {
   match ipc
-    .roundtrip(message)
+    .roundtrip(message.to_bytes())
     .map_err(Error::Ipc)
     .map(Response::bulk_scan)?
   {
     true => Ok(()),
-    false => Err(Error::Mutation),
+    false => Err(Error::Configuration(message)),
   }
 }
 
 #[derive(Debug)]
+/// Autosway could not perform for the following reasons:
+///   * An error occured while talking to Sway
+///   * Current layout could not be fetched
+///   * Current layout could not be persisted
+///   * Configuration of one of the outputs failed
 pub enum Error {
-  Ipc(std::io::Error),
+  Ipc(io::Error),
   ActiveLayout(serde_json::error::Error),
   Save(repository::StorageError),
-  Mutation,
+  Configuration(message::Message),
 }
 
 impl fmt::Display for Error {
@@ -107,7 +113,7 @@ impl fmt::Display for Error {
       Error::Ipc(ref err) => write!(f, "could not communicate with sway: {}", err),
       Error::ActiveLayout(ref err) => write!(f, "active layout request failed: {}", err),
       Error::Save(ref err) => write!(f, "could not persist layout: {}", err),
-      Error::Mutation => write!(f, "error applying settings for output"),
+      Error::Configuration(ref mess) => write!(f, "error applying settings: {:?}", mess),
     }
   }
 }
@@ -118,7 +124,7 @@ impl error::Error for Error {
       Error::Ipc(ref err) => err.description(),
       Error::ActiveLayout(ref err) => err.description(),
       Error::Save(ref err) => err.description(),
-      Error::Mutation => "",
+      Error::Configuration(_) => "",
     }
   }
 
@@ -127,7 +133,7 @@ impl error::Error for Error {
       Error::Ipc(ref err) => Some(err),
       Error::ActiveLayout(ref err) => Some(err),
       Error::Save(ref err) => Some(err),
-      Error::Mutation => None,
+      Error::Configuration(_) => None,
     }
   }
 }

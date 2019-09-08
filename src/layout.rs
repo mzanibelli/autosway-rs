@@ -1,9 +1,8 @@
-use serde::Deserialize;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::clone::Clone;
-use std::fmt::Display;
-use std::fmt::Formatter;
+use std::fmt;
+use std::fmt::{Display, Formatter};
 
 /// The currently available outputs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,7 +75,7 @@ impl Layout {
 
 impl Display for Layout {
   /// Renders each output's string template separated by a line feed.
-  fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
+  fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
     write!(f, "{}", self.serialize_commands().join("\n"))
   }
 }
@@ -103,7 +102,7 @@ struct Rect {
 }
 
 impl Display for Output {
-  fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
+  fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
     write!(f, "{}", sway_output_command(&self))
   }
 }

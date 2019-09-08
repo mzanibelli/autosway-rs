@@ -3,6 +3,7 @@ use serde::ser::Serialize;
 use std::error;
 use std::fmt;
 use std::fs;
+use std::io;
 use std::path::Path;
 
 /// Responsible for saving and loading layouts to/from the filesystem.
@@ -50,7 +51,7 @@ impl Repository {
 #[derive(Debug)]
 pub enum StorageError {
   /// Results from a file operation error.
-  Io(std::io::Error),
+  Io(io::Error),
   /// Could not encode or decode to/from JSON.
   Json(serde_json::error::Error),
 }
@@ -66,8 +67,8 @@ impl fmt::Display for StorageError {
   }
 }
 
-impl From<std::io::Error> for StorageError {
-  fn from(err: std::io::Error) -> StorageError {
+impl From<io::Error> for StorageError {
+  fn from(err: io::Error) -> StorageError {
     StorageError::Io(err)
   }
 }
