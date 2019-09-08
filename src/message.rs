@@ -10,9 +10,7 @@ pub enum Message {
 impl Message {
   /// Serialize message.
   pub fn to_bytes(&self) -> Vec<u8> {
-    let mut result = Vec::new();
-    result.append(&mut self.len().to_le_bytes().to_vec());
-    result.append(&mut self.what().to_le_bytes().to_vec());
+    let mut result = [self.len().to_le_bytes(), self.what().to_le_bytes()].concat();
     result.append(&mut self.data());
     result
   }
