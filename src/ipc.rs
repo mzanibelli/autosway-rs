@@ -1,4 +1,3 @@
-use crate::message::Message;
 use std::clone::Clone;
 use std::io;
 use std::io::Read;
@@ -7,6 +6,11 @@ use std::mem;
 use std::os::unix::net::UnixStream;
 
 const MAGIC_STRING: &'static str = "i3-ipc";
+
+/// A message that can be sent to Sway.
+pub trait Message {
+  fn to_bytes(&self) -> Vec<u8>;
+}
 
 /// The connection to Sway.
 pub struct Ipc(UnixStream);
@@ -21,18 +25,13 @@ impl Ipc {
   }
 
   /// Sends a request and returns any valid response body as bytes.
-  pub fn roundtrip(&mut self, m: Message) -> Result<Vec<u8>, io::Error> {
+  pub fn roundtrip(&mut self, m: impl Message) -> Result<Vec<u8>, io::Error> {
     make_request(&mut self.0, m)
       .and_then(|()| read_response_headers(&self.0))
       .and_then(|size| read_n(&self.0, size))
   }
 }
 
-/// Forks the connection.
-/// Mainly used as a way to obtain mutable reference in closure.
-/// Panics if we can't clone the underlying socket.
-/// This is probably a very bad idea but remember we're writing in the
-/// socket over a map() - potentially not sequential.
 impl Clone for Ipc {
   fn clone(&self) -> Self {
     Ipc(self.0.try_clone().unwrap())
@@ -40,28 +39,11 @@ impl Clone for Ipc {
 }
 
 /// Builds and write the predefined request to the socket.
-fn make_request(mut stream: impl Write, mess: Message) -> Result<(), io::Error> {
+fn make_request(mut stream: impl Write, mess: impl Message) -> Result<(), io::Error> {
   let mut request = Vec::<u8>::new();
-  write_magic_string(&mut request);
-  write_message(&mut request, mess);
+  request.append(&mut MAGIC_STRING.as_bytes().to_vec());
+  request.append(&mut mess.to_bytes());
   stream.write_all(&request)
-}
-
-/// Appends the static `i3-ipc` magic string to the given request.
-fn write_magic_string(request: &mut Vec<u8>) {
-  unsafe {
-    // Unsafe because the compiler cannot guarantee the string is valid UTF-8.
-    // This is one of the cases we know _more_ than the compiler.
-    request.append(String::from(MAGIC_STRING).as_mut_vec());
-  }
-}
-
-/// Writes a message to the given request.
-fn write_message(request: &mut Vec<u8>, mess: Message) {
-  let (l, t) = (mess.len().to_le_bytes(), mess.what().to_le_bytes());
-  request.append(&mut l.to_vec());
-  request.append(&mut t.to_vec());
-  request.append(&mut mess.data().to_vec());
 }
 
 /// Returns the expected body length as announced by the server.
@@ -91,26 +73,19 @@ fn guard_against_invalid_response(headers: &[u8]) {
 mod tests {
   use super::*;
 
-  #[test]
-  fn it_should_generate_a_valid_standard_get_outputs_message() {
-    let mut c = io::Cursor::new(Vec::new());
-    let expected = vec![
-      //                                     | size              | type
-      105u8, 51u8, 45u8, 105u8, 112u8, 99u8, 0u8, 0u8, 0u8, 0u8, 3u8, 0u8, 0u8, 0u8,
-    ];
-    super::make_request(&mut c, Message::GetOutputs).unwrap();
-    assert_eq!(&expected, c.get_ref());
+  struct Foo;
+
+  impl super::Message for Foo {
+    fn to_bytes(&self) -> Vec<u8> {
+      vec![0u8, 1u8, 2u8, 3u8]
+    }
   }
 
   #[test]
-  fn it_should_generate_a_valid_run_command_message_with_payload() {
+  fn it_should_generate_a_valid_message() {
     let mut c = io::Cursor::new(Vec::new());
-    let expected = vec![
-      //                                     | size              | type              | payload
-      105u8, 51u8, 45u8, 105u8, 112u8, 99u8, 3u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 102u8, 111u8,
-      111u8,
-    ];
-    super::make_request(&mut c, Message::RunCommand(String::from("foo"))).unwrap();
+    let expected = vec![105u8, 51u8, 45u8, 105u8, 112u8, 99u8, 0u8, 1u8, 2u8, 3u8];
+    super::make_request(&mut c, Foo).unwrap();
     assert_eq!(&expected, c.get_ref());
   }
 

@@ -1,3 +1,4 @@
+use crate::ipc;
 use serde::Deserialize;
 
 #[derive(Debug)]
@@ -9,7 +10,7 @@ pub enum Message {
 
 impl Message {
   /// Returns the type (as in the protocol) of the message.
-  pub fn what(&self) -> u32 {
+  fn what(&self) -> u32 {
     match &self {
       Self::GetOutputs => 3,
       Self::RunCommand(_) => 0,
@@ -17,7 +18,7 @@ impl Message {
   }
 
   /// Returns the length of the payload.
-  pub fn len(&self) -> u32 {
+  fn len(&self) -> u32 {
     match &self {
       Self::GetOutputs => 0,
       Self::RunCommand(data) => data.len() as u32,
@@ -25,11 +26,21 @@ impl Message {
   }
 
   /// Returns the payload data.
-  pub fn data(&self) -> Vec<u8> {
+  fn data(&self) -> Vec<u8> {
     match &self {
       Self::GetOutputs => Vec::<u8>::new(),
       Self::RunCommand(data) => data.as_bytes().to_vec(),
     }
+  }
+}
+
+impl ipc::Message for Message {
+  fn to_bytes(&self) -> Vec<u8> {
+    let mut result = Vec::new();
+    result.append(&mut self.len().to_le_bytes().to_vec());
+    result.append(&mut self.what().to_le_bytes().to_vec());
+    result.append(&mut self.data());
+    result
   }
 }
 
@@ -52,6 +63,21 @@ impl Response {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::ipc::Message;
+
+  #[test]
+  fn it_should_serialize_a_standard_get_outputs_message() {
+    let expected = vec![0, 0, 0, 0, 3, 0, 0, 0];
+    let actual = super::Message::GetOutputs.to_bytes();
+    assert_eq!(expected, actual);
+  }
+
+  #[test]
+  fn it_should_serialize_a_run_command_message_with_a_payload() {
+    let expected = vec![3, 0, 0, 0, 0, 0, 0, 0, 102, 111, 111];
+    let actual = super::Message::RunCommand(String::from("foo")).to_bytes();
+    assert_eq!(expected, actual);
+  }
 
   #[test]
   fn it_should_return_true_if_all_responses_are_successful() {
@@ -66,7 +92,7 @@ mod tests {
     )
     .as_bytes()
     .to_vec();
-    assert_eq!(true, Response::bulk_scan(input));
+    assert!(Response::bulk_scan(input));
   }
 
   #[test]
@@ -82,7 +108,7 @@ mod tests {
     )
     .as_bytes()
     .to_vec();
-    assert_eq!(false, Response::bulk_scan(input));
+    assert!(!Response::bulk_scan(input));
   }
 
   #[test]
@@ -98,6 +124,6 @@ mod tests {
     )
     .as_bytes()
     .to_vec();
-    assert_eq!(false, Response::bulk_scan(input));
+    assert!(!Response::bulk_scan(input));
   }
 }
