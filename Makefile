@@ -6,3 +6,6 @@ target/debug/autosway: $(src)
 
 install:
 	cargo install --path . --force
+
+doc:
+	cargo doc --open
