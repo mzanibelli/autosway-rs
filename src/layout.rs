@@ -30,10 +30,11 @@ impl Layout {
   /// identifier.
   pub fn merge(mut self, other: Self) -> Self {
     for ref mut o in &mut (self.0) {
-      let o2 = other
-        .find_by_id(unique_oem_identifier(&o))
-        .expect("merge: incompatible layouts");
-      o.merge(&o2);
+      o.merge(
+        other
+          .find_by_id(unique_oem_identifier(&o))
+          .expect("merge: incompatible layouts"),
+      );
     }
     self
   }
