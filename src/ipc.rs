@@ -1,4 +1,5 @@
 use crate::message::Message;
+use std::clone::Clone;
 use std::io;
 use std::io::Read;
 use std::io::Write;
@@ -25,14 +26,15 @@ impl Ipc {
       .and_then(|()| read_response_headers(&self.0))
       .and_then(|size| read_n(&self.0, size))
   }
+}
 
-  /// Forks the connection.
-  /// Mainly used as a way to obtain mutable reference in closure.
-  /// Panics if we can't clone the underlying socket.
-  /// This is probably a very bad idea but remember we're writing in the
-  /// socket over a map() - potentially not sequential.
-  pub fn clone(&self) -> Self {
-    // TODO: actually understand why this seems to work...
+/// Forks the connection.
+/// Mainly used as a way to obtain mutable reference in closure.
+/// Panics if we can't clone the underlying socket.
+/// This is probably a very bad idea but remember we're writing in the
+/// socket over a map() - potentially not sequential.
+impl Clone for Ipc {
+  fn clone(&self) -> Self {
     Ipc(self.0.try_clone().unwrap())
   }
 }
