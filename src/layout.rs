@@ -26,7 +26,8 @@ impl Layout {
       .collect()
   }
 
-  /// Merges the configuration of two layouts.
+  /// Apply screen configuration of the given layout to the current
+  /// layout.
   pub fn merge(mut self, layout: Self) -> Self {
     for ref mut o in &mut (self.0) {
       let o2 = layout
@@ -44,7 +45,7 @@ impl Layout {
     self
   }
 
-  /// Panics if there is no matching output.
+  /// Returns the output matching a given identifier.
   fn find_by_id(&self, id: String) -> Option<&Output> {
     self.0.iter().find(|o| unique_oem_identifier(&o) == id)
   }
