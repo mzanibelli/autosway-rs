@@ -26,20 +26,14 @@ impl Layout {
   }
 
   /// Apply screen configuration of the given layout to the current
-  /// layout.
-  pub fn merge(mut self, layout: Self) -> Self {
+  /// layout. Panics if we can't find an ouput with the same OEM
+  /// identifier.
+  pub fn merge(mut self, other: Self) -> Self {
     for ref mut o in &mut (self.0) {
-      let o2 = layout
+      let o2 = other
         .find_by_id(unique_oem_identifier(&o))
         .expect("merge: incompatible layouts");
-      o.rect.x = o2.rect.x;
-      o.rect.y = o2.rect.y;
-      o.rect.width = o2.rect.width;
-      o.rect.height = o2.rect.height;
-      match &o2.transform {
-        Some(t) => o.transform = Some(t.clone()),
-        None => o.transform = None,
-      }
+      o.merge(&o2);
     }
     self
   }
@@ -49,20 +43,17 @@ impl Layout {
     self.0.iter().find(|o| unique_oem_identifier(&o) == id)
   }
 
-  /// A vector with an unique string for each output.
+  /// A sorted vector with an unique string for each output.
   fn serialize_ids(&self) -> Vec<String> {
-    let mut ids = self
-      .0
-      .iter()
-      .map(unique_oem_identifier)
-      .collect::<Vec<String>>();
+    let mut ids: Vec<String> = self.0.iter().map(unique_oem_identifier).collect();
     ids.sort();
     ids
   }
 
-  /// Activates any single output.
+  /// Activates any single output. Does not mutate self but instead
+  /// clone and modify outputs into a new vector.
   fn activate_only_output(&self) -> Vec<Output> {
-    let mut result = Vec::new();
+    let mut result = Vec::with_capacity(self.0.len());
     for o in &self.0 {
       result.push(o.clone());
     }
@@ -90,6 +81,20 @@ pub struct Output {
   transform: Option<String>,
   rect: Rect,
   active: bool,
+}
+
+impl Output {
+  /// Overrides rect and transform values of self with other's.
+  fn merge(&mut self, other: &Self) {
+    self.rect.x = other.rect.x;
+    self.rect.y = other.rect.y;
+    self.rect.width = other.rect.width;
+    self.rect.height = other.rect.height;
+    self.transform = match &other.transform {
+      Some(t) => Some(t.clone()),
+      None => None,
+    }
+  }
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]

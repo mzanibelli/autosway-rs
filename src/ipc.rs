@@ -29,14 +29,14 @@ impl Clone for Ipc {
   }
 }
 
-/// Builds and write the predefined request to the socket.
+/// Builds and writes the request to the socket.
 fn make_request(mut stream: impl Write, bytes: Vec<u8>) -> Result<(), io::Error> {
   stream.write_all(&[MAGIC_STRING.as_bytes(), &bytes].concat())
 }
 
 /// Returns the expected body length as announced by the server.
 fn read_response_headers(stream: impl Read) -> Result<usize, io::Error> {
-  let headers = read_n(stream, MAGIC_STRING.len() + 2 * mem::size_of::<u32>())?;
+  let headers = read_n(stream, headers_size())?;
   guard_against_invalid_response(&headers);
   Ok(u32::from_le_bytes([headers[6], headers[7], headers[8], headers[9]]) as usize)
 }
@@ -48,9 +48,16 @@ fn read_n(stream: impl Read, n: usize) -> Result<Vec<u8>, io::Error> {
   Ok(result)
 }
 
+/// The static headers size kept in this form to clarify its origin. The
+/// server expects every message to begin with the magic string, the
+/// message size (u32) and the message type (also u32).
+fn headers_size() -> usize {
+  MAGIC_STRING.len() + 2 * mem::size_of::<u32>()
+}
+
 /// Panics if the first six bytes of the reponse are not the magic string.
 fn guard_against_invalid_response(headers: &[u8]) {
-  assert!(headers.len() > 6);
+  assert!(headers.len() == headers_size());
   assert_eq!(
     String::from_utf8(headers[0..6].to_vec()).as_ref().unwrap(),
     MAGIC_STRING

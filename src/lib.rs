@@ -11,6 +11,7 @@ use std::error;
 use std::fmt;
 use std::io;
 
+/// Tells the program what to do.
 pub enum Action {
   /// Automatically configure layout.
   Auto,
@@ -20,7 +21,7 @@ pub enum Action {
   List,
 }
 
-/// Runs the program by executing the requested action and return contents for stdout and stderr.
+/// Runs the program by executing the requested action.
 pub fn run(socket_path: String, fs_root: String, action: Action) -> Result<String, Error> {
   connect_to_sway(socket_path).and_then(move |mut ipc| {
     match (
@@ -95,15 +96,15 @@ fn run_output_command((mut ipc, message): (Ipc, Message)) -> Result<(), Error> {
 }
 
 #[derive(Debug)]
-/// Autosway could not perform for the following reasons:
-///   * An error occured while talking to Sway
-///   * Current layout could not be fetched
-///   * Current layout could not be persisted
-///   * Configuration of one of the outputs failed
+/// AutoSway could not perform correctly.
 pub enum Error {
+  /// An error occured while talking to Sway.
   Ipc(io::Error),
+  /// Current layout could not be fetched.
   ActiveLayout(serde_json::error::Error),
+  /// Current layout could not be persisted.
   Save(repository::StorageError),
+  /// Configuration of one of the outputs failed.
   Configuration(message::Message),
 }
 
