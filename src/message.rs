@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
-#[derive(Debug)]
 /// Subset of the messages supported by the IPC protocol.
+#[derive(Debug)]
 pub enum Message {
   GetOutputs,
   RunCommand(String),
@@ -42,8 +42,8 @@ impl Message {
   }
 }
 
-#[derive(Debug, Deserialize)]
 /// Represents the output of a RunCommand command.
+#[derive(Debug, Deserialize)]
 pub struct Response {
   pub success: bool,
 }

@@ -95,8 +95,8 @@ fn run_output_command((mut ipc, message): (Ipc, Message)) -> Result<(), Error> {
   }
 }
 
-#[derive(Debug)]
 /// AutoSway could not perform correctly.
+#[derive(Debug)]
 pub enum Error {
   /// An error occured while talking to Sway.
   Ipc(io::Error),

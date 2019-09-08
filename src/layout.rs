@@ -71,8 +71,8 @@ impl Display for Layout {
   }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
 /// Represents an output.
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Output {
   name: String,
   make: String,
@@ -97,8 +97,8 @@ impl Output {
   }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 /// Represents the position and size of an output.
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 struct Rect {
   x: u32,
   y: u32,
