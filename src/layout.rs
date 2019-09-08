@@ -39,7 +39,7 @@ impl Layout {
       o.rect.height = o2.rect.height;
       match &o2.transform {
         Some(t) => o.transform = Some(t.clone()),
-        None => (),
+        None => o.transform = None,
       }
     }
     self
