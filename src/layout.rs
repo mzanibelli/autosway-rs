@@ -87,6 +87,7 @@ pub struct Output {
 impl Output {
   /// Overrides rect and transform values of self with other's.
   fn merge(&mut self, other: &Self) {
+    self.active = other.active;
     self.rect.x = other.rect.x;
     self.rect.y = other.rect.y;
     self.rect.width = other.rect.width;
@@ -211,6 +212,15 @@ mod tests {
     assert_eq!(222, l1.0[0].rect.y);
     assert_eq!(333, l1.0[0].rect.width);
     assert_eq!(444, l1.0[0].rect.height);
+  }
+
+  #[test]
+  fn merge_should_override_active() {
+    let mut l1 = make_layout();
+    let mut l2 = make_layout();
+    l2.0[0].active = false;
+    l1 = l1.merge(l2);
+    assert!(!l1.0[0].active);
   }
 
   #[test]
